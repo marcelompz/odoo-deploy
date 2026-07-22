@@ -1,0 +1,108 @@
+services:
+  web8084:
+    container_name: ${WEB_HOST:-odoo_web_8084}
+    image: odoo-migracion-test:19.0
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    depends_on:
+      - db5436
+    ports:
+      - "${WEB_PORT:-8084}:8069"
+    env_file:
+      - .env
+    volumes:
+      - odoo-web-data:/var/lib/odoo
+      - ./config:/etc/odoo
+      - ./addons:/mnt/extra-addons
+      - ${WEB_ADDONS_CUSTOMIZE:-./addons}:/mnt/extra-addons-customize
+      - ${WEB_ADDONS_L10NPY:-/srv/odoo-modules/l10n_py}:/mnt/extra-addons-l10n
+      - ./migracion:/mnt/migracion
+    environment:
+      - HOST=${DB_HOST:-db5436}
+      - USER=${DB_USER:-odoo}
+      - PASSWORD=${DB_PASSWD:-cross.159753}
+      - PGHOST=${DB_HOST:-db5436}
+      - PGPORT=5432
+      - PGDATABASE=${DB_NAME:-prod}
+      - PGPASSWORD=${DB_PASSWD:-cross.159753}
+      - TZ=America/Asuncion
+      - DEBIAN_FRONTEND=noninteractive
+    restart: unless-stopped
+    networks:
+      - default
+      - traefik-public
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8069/web/database/selector"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 90s
+
+  db5436:
+    container_name: ${DB_HOST:-db_odoo_5436}
+    image: ${DB_IMAGE:-postgres}:${DB_TAG:-15}
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=${DB_NAME:-postgres}
+      - POSTGRES_USER=${DB_USER:-odoo}
+      - POSTGRES_PASSWORD=${DB_PASSWD:-cross.159753}
+      - PGDATA=/var/lib/postgresql/data/pgdata
+      - TZ=${TZ:-America/Asuncion}
+    ports:
+      - "${DB_PORT:-5436}:5432"
+    volumes:
+      - odoo-db-data:/var/lib/postgresql/data/pgdata
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-odoo} -d ${DB_NAME:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  init:
+    container_name: odoo_init_db_19
+    image: odoo-migracion-test:19.0
+    depends_on:
+      - db5436
+    env_file:
+      - .env
+    volumes:
+      - odoo-web-data:/var/lib/odoo
+      - ./config:/etc/odoo
+      - ./addons:/mnt/extra-addons
+      - ${WEB_ADDONS_CUSTOMIZE:-./addons}:/mnt/extra-addons-customize
+      - ${WEB_ADDONS_L10NPY:-/srv/odoo-modules/l10n_py}:/mnt/extra-addons-l10py
+      - ./migracion:/mnt/migracion
+      - ./init_prod_db.sh:/init_prod_db.sh:ro
+      - ./modules.conf:/modules.conf:ro
+      - ./migracion:/mnt/migracion
+    environment:
+      - DB_NAME=${DB_NAME:-prod}
+      - DB_HOST=${DB_HOST:-db5436}
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-odoo}
+      - DB_PASSWD=${DB_PASSWD:-cross.159753}
+      - ADMIN_EMAIL=${ADMIN_EMAIL:-soporte@crossnexion.com}
+      - ADMIN_PASSWORD=${ADMIN_PASSWORD:-Cross1983_}
+      - IMPORT_RECIPES=${IMPORT_RECIPES:-false}
+      - IMPORT_PRODUCTS=${IMPORT_PRODUCTS:-false}
+    command: >
+      bash -c "
+        pip3 install --break-system-packages tu-ruc-python-client 2>/dev/null || true &&
+        bash /init_prod_db.sh &&
+        touch /tmp/init_completed
+      "
+    restart: "no"
+
+volumes:
+  odoo-db-data:
+  odoo-web-data:
+
+networks:
+  default:
+    driver: bridge
+  traefik-public:
+    external: true

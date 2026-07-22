@@ -1,27 +1,47 @@
+# Odoo 9043 - Configuración optimizada
 services:
   web:
     container_name: ${WEB_HOST}
     image: ${WEB_IMAGE_NAME}:${WEB_IMAGE_TAG}
     build:
-      context: ./
-      dockerfile: Dockerfile
+      context: .
+      dockerfile: Dockerfile.optimizado
     depends_on:
-      - db
+      db:
+        condition: service_healthy
     ports:
-      - "${WEB_PORT:-80}:8069"
+      - "${WEB_PORT}:8069"
+      - "${LONGPOLLING_PORT}:8072"
     volumes:
       - odoo-web-data:/var/lib/odoo
-      - ./config:/etc/odoo
-      - ${WEB_ADDONS_CUSTOMIZE:-/srv/odoo/addons/18.0}:/mnt/extra-addons-customize
-      - ${WEB_ADDONS_L10NPY:-/srv/odoo/addons/l10n_py/v18}:/mnt/extra-addons-l10py
-    entrypoint: "/usr/bin/odoo -c /etc/odoo/odoo.conf"
+      - ./config:/etc/odoo:ro
+      - /mnt/addons:/mnt/extra-addons
+      - ${WEB_ADDONS_CUSTOMIZE}:/mnt/extra-addons-customize
+      - ${WEB_ADDONS_ENTERPRISE}:/mnt/extra-addons-enterprise
+      - ${WEB_ADDONS_L10NPY}:/mnt/extra-addons-l10npy
+    entrypoint: ["/entrypoint.sh"]
+    command: ["--config=/etc/odoo/odoo.conf"]
     environment:
       - HOST=${DB_HOST}
       - USER=${DB_USER}
       - PASSWORD=${DB_PASSWD}
       - TZ=${TZ:-America/Asuncion}
       - DEBIAN_FRONTEND=noninteractive
-    restart: always
+      - PGDATABASE=${DB_NAME}
+      - PGUSER=${DB_USER}
+      - PGPASSWORD=${DB_PASSWD}
+      - PGHOST=${DB_HOST}
+      - PGPORT=5432
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8069/web/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - odoo-network
+
   db:
     container_name: ${DB_HOST}
     image: ${DB_IMAGE}:${DB_TAG}
@@ -31,11 +51,21 @@ services:
       - POSTGRES_USER=${DB_USER}
       - PGDATA=/var/lib/postgresql/data/pgdata
       - TZ=${TZ:-America/Asuncion}
+      - DEBIAN_FRONTEND=noninteractive
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8 --lc-collate=C --lc-ctype=C
     ports:
-      - "${DB_PORT:-5432}:5432"
+      - "${DB_PORT}:5432"
     volumes:
       - odoo-db-data:/var/lib/postgresql/data/pgdata
     restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    networks:
+      - odoo-network
 
 volumes:
   odoo-db-data:
@@ -50,3 +80,7 @@ volumes:
       type: none
       device: ${WEB_VOLUMES}
       o: bind
+
+networks:
+  odoo-network:
+    driver: bridge
