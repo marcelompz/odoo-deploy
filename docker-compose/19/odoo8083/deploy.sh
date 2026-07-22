@@ -69,6 +69,20 @@ echo -e "  • Limpieza DB: ${YELLOW}$CLEAN_DB${NC}"
 echo -e "  • Importar Productos: ${YELLOW}$IMPORT_PRODUCTS${NC}"
 echo -e "  • Importar Recetas:   ${YELLOW}$IMPORT_RECIPES${NC}"
 
+echo -e "\n${YELLOW}[!] ADVERTENCIA: Se detendrán los contenedores de Docker (db, web, init).${NC}"
+read -p "¿Desea continuar con el deploy? (s/N): " confirm
+if [[ ! "$confirm" =~ ^[sSyY]$ ]]; then
+    echo -e "\n${RED}Operación cancelada por el usuario.${NC}"
+    exit 0
+fi
+
+echo -e "\n${YELLOW}[!] ADVERTENCIA: Se detendrán los contenedores de Docker (db, web, init).${NC}"
+read -p "¿Desea continuar con el deploy? (s/N): " confirm
+if [[ ! "$confirm" =~ ^[sSyY]$ ]]; then
+    echo -e "\n${RED}Operación cancelada por el usuario.${NC}"
+    exit 0
+fi
+
 echo -e "\n${BLUE}[1/4] Deteniendo contenedores existentes...${NC}"
 docker compose down
 
