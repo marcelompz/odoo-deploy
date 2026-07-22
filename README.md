@@ -10,7 +10,8 @@ Despliegue productivo de Odoo 18 CE y Odoo 19 CE en Docker Compose.
   - `v19`: docker-compose, configs, scripts y migración para Odoo 19 CE
 
 ## Ruta productiva
-- Addons: `/srv/odoo/addons/18.0` y `/srv/odoo/addons/19.0`
+- Addons v18: `/srv/odoo/addons/18.0` y `/srv/odoo/addons/l10n_py/v18`
+- Addons v19: `/srv/odoo/addons/19.0` y `/srv/odoo/addons/l10n_py/v19`
 - Local: `/opt/odoo`
 
 ## Estructura
@@ -35,7 +36,7 @@ Cada instancia incluye:
 - `init_prod_db.sh`
 - `modules.conf`
 - `deploy.sh` (v19)
-- `migracion/` (v19)
+- `migracion/` (v18 y v19 donde aplique)
 
 ## Prerequisitos
 ```bash
@@ -52,7 +53,7 @@ git clone --branch v18 --depth 1 git@github.com:marcelompz/odoo-deploy.git /srv/
 git clone --branch v19 --depth 1 git@github.com:marcelompz/odoo-deploy.git /srv/odoo-deploy-v19
 ```
 
-## Deploy por instancia
+## Deploy por instancia (v19)
 ```bash
 cd /srv/odoo-deploy-v19/docker-compose/19/odoo8084
 cp .env.example .env
@@ -70,8 +71,8 @@ docker compose up -d web
 ```
 
 ## Variables .env
-- `WEB_ADDONS_CUSTOMIZE`: ruta a addons custom (default `/srv/odoo/addons/19.0`)
-- `WEB_ADDONS_L10NPY`: ruta a localización Paraguay (default `/srv/odoo/addons/l10n_py/v19`)
+- `WEB_ADDONS_CUSTOMIZE`: ruta a addons custom (default `/srv/odoo/addons/18.0` o `/srv/odoo/addons/19.0`)
+- `WEB_ADDONS_L10NPY`: ruta a localización Paraguay (default `/srv/odoo/addons/l10n_py/v18` o `/srv/odoo/addons/l10n_py/v19`)
 - `DB_VOLUMES`, `WEB_VOLUMES`: rutas de datos persistentes
 
 ## Inicialización
