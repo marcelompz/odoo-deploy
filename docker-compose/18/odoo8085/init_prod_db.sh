@@ -68,9 +68,12 @@ else
 fi
 
 # Verificar si Odoo ya está inicializado (si existe la tabla res_users)
+IS_NEW_DB=true
 if psql -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" -t -c "SELECT 1 FROM pg_tables WHERE tablename='res_users'" 2>/dev/null | grep -q 1; then
-  echo "✓ Odoo ya está inicializado en '$DB_NAME'. Omitiendo configuración."
-  exit 0
+  IS_NEW_DB=false
+  echo "✓ Base de datos '$DB_NAME' preexistente. Se instalarán módulos de modules.conf sin sobrescribir datos."
+else
+  IS_NEW_DB=true
 fi
 
 # Leer los módulos desde modules.conf
@@ -87,21 +90,37 @@ fi
 
 echo "Módulos a instalar: $MODULES_LIST"
 
-# Inicializar Odoo
-echo "Inicializando Odoo en '$DB_NAME'..."
-odoo \
-     -d "$DB_NAME" \
-     --init "$MODULES_LIST" \
-     --stop-after-init \
-     --without-demo=all \
-     --db_host "$DB_HOST" \
-     --db_port "$DB_PORT" \
-     --db_user "$DB_USER" \
-     --db_password "$DB_PASSWD" \
-     --addons-path=/mnt/extra-addons,/mnt/extra-addons-customize,/mnt/extra-addons-l10py,/usr/lib/python3/dist-packages/odoo/addons \
-     2>&1 | tail -30
+if [ "$IS_NEW_DB" = true ]; then
+  echo "Inicializando Odoo en '$DB_NAME'..."
+  odoo \
+       -d "$DB_NAME" \
+       --init "$MODULES_LIST" \
+       --stop-after-init \
+       --without-demo=all \
+       --db_host "$DB_HOST" \
+       --db_port "$DB_PORT" \
+       --db_user "$DB_USER" \
+       --db_password "$DB_PASSWD" \
+       --addons-path=/mnt/extra-addons,/mnt/extra-addons-customize,/mnt/extra-addons-l10py,/usr/lib/python3/dist-packages/odoo/addons \
+       2>&1 | tail -30
 
-echo "✓ Odoo inicializado"
+  echo "✓ Odoo inicializado"
+else
+  echo "Instalando módulos en DB preexistente..."
+  odoo \
+       -d "$DB_NAME" \
+       -i "$MODULES_LIST" \
+       --stop-after-init \
+       --without-demo=all \
+       --db_host "$DB_HOST" \
+       --db_port "$DB_PORT" \
+       --db_user "$DB_USER" \
+       --db_password "$DB_PASSWD" \
+       --addons-path=/mnt/extra-addons,/mnt/extra-addons-customize,/mnt/extra-addons-l10py,/usr/lib/python3/dist-packages/odoo/addons \
+       2>&1 | tail -30
+
+  echo "✓ Módulos instalados/actualizados en DB preexistente"
+fi
 
 # Actualizar usuario admin
 echo "Actualizando usuario admin..."
