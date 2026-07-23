@@ -71,7 +71,12 @@ echo -e "${YELLOW}[*] Siguiendo logs del contenedor de inicialización en tiempo
 docker logs -f odoo_init_db_18
 
 # Obtener código de salida del contenedor init
-EXIT_CODE=$(docker inspect odoo_init_db_18 --format='{{.State.ExitCode}}')
+if docker ps -a --format '{{.Names}}' | grep -q '^odoo_init_db_18$'; then
+    EXIT_CODE=$(docker inspect odoo_init_db_18 --format='{{.State.ExitCode}}')
+else
+    echo -e "\${RED}Error: El contenedor de inicializacion no se creo.\${NC}"
+    exit 1
+fi
 
 if [ "$EXIT_CODE" -eq 0 ]; then
     echo -e "\n${GREEN}✓ Inicialización y carga de datos completada con éxito!${NC}"
