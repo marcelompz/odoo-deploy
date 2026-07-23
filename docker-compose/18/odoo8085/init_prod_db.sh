@@ -90,11 +90,18 @@ fi
 
 echo "Módulos a instalar: $MODULES_LIST"
 
+# Ordenar módulos por dependencias (core -> POS -> custom -> l10n)
+ORDERED_MODULES_LIST="base,web,mail,stock,purchase,sale,mrp,point_of_sale,pos_restaurant,product,product_mass_import,pos_product_bom,excel_recipe_import,printing,ica_web_responsive,auto_database_backup,base_accounting_kit,dynamic_accounts_report,base_account_budget,contacts,electronic_invoice_cross,pos_einvoice_cross,l10n_py"
+echo "Módulos ordenados por dependencias: $ORDERED_MODULES_LIST"
+
+INIT_LOG="/tmp/odoo_init_${DB_NAME}_$(date +%Y%m%d_%H%M%S).log"
+echo "Log de inicialización: $INIT_LOG"
+
 if [ "$IS_NEW_DB" = true ]; then
   echo "Inicializando Odoo en '$DB_NAME'..."
   odoo \
        -d "$DB_NAME" \
-       --init "$MODULES_LIST" \
+       --init "$ORDERED_MODULES_LIST" \
        --stop-after-init \
        --without-demo=all \
        --db_host "$DB_HOST" \
@@ -102,14 +109,39 @@ if [ "$IS_NEW_DB" = true ]; then
        --db_user "$DB_USER" \
        --db_password "$DB_PASSWD" \
        --addons-path=/mnt/extra-addons,/mnt/extra-addons-customize,/mnt/extra-addons-l10py,/usr/lib/python3/dist-packages/odoo/addons \
-       2>&1 | tail -30
+       2>&1 | tee "$INIT_LOG"
 
   echo "✓ Odoo inicializado"
 else
   echo "Instalando módulos en DB preexistente..."
+  echo "[*] Actualizando lista de módulos..."
+  python3 << PYEOF
+import sys
+sys.path.insert(0, '/usr/lib/python3/dist-packages')
+import odoo
+import odoo.tools
+odoo.tools.config.parse_config([
+    '--db_host', '$DB_HOST',
+    '--db_port', '$DB_PORT',
+    '--db_user', '$DB_USER',
+    '--db_password', '$DB_PASSWD',
+])
+try:
+    import odoo.modules.registry
+    registry = odoo.modules.registry.Registry('$DB_NAME')
+    with registry.cursor() as cr:
+        env = api.Environment(cr, SUPERUSER_ID, {})
+        env['ir.module.module'].update_list()
+        cr.commit()
+        print('  ✓ Lista de módulos actualizada')
+except Exception as e:
+    print('  ✗ Error actualizando lista:', e)
+PYEOF
+
+  echo "[*] Instalando módulos de modules.conf..."
   odoo \
        -d "$DB_NAME" \
-       -i "$MODULES_LIST" \
+       -i "$ORDERED_MODULES_LIST" \
        --stop-after-init \
        --without-demo=all \
        --db_host "$DB_HOST" \
@@ -117,7 +149,7 @@ else
        --db_user "$DB_USER" \
        --db_password "$DB_PASSWD" \
        --addons-path=/mnt/extra-addons,/mnt/extra-addons-customize,/mnt/extra-addons-l10py,/usr/lib/python3/dist-packages/odoo/addons \
-       2>&1 | tail -30
+       2>&1 | tee "$INIT_LOG"
 
   echo "✓ Módulos instalados/actualizados en DB preexistente"
 fi
